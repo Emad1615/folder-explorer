@@ -1,52 +1,75 @@
-import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
-import { findFolder } from '@/lib/data';
-import { writeFile, mkdir } from 'fs/promises';
-import { join, basename } from 'path';
+// api/files/[id]/route.ts
+import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
+import { findFolder } from "@/lib/data";
+import { writeFile, mkdir } from "fs/promises";
+import { join, basename, extname } from "path";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
   const formData = await req.formData();
-  const file = formData.get('file') as File | null;
-  const providedName = formData.get('name')?.toString();
+  const file = formData.get("file") as File | null;
+  const providedName = formData.get("name")?.toString();
   const parent = findFolder(params.id);
+
   if (!parent || !file) {
-    return NextResponse.json({ error: 'Invalid request: missing parent or file' }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request: missing parent or file" },
+      { status: 400 }
+    );
   }
 
-  // Decide filename: prefer 'name' field, fallback to uploaded file's original name
-  const rawName = (providedName && providedName.trim()) ? providedName.trim() : file.name;
-  const safeName = basename(rawName);
-  if (!safeName) {
-    return NextResponse.json({ error: 'Invalid file name' }, { status: 400 });
+  const rawName =
+    providedName && providedName.trim() ? providedName.trim() : file.name;
+
+  let safeName = basename(rawName);
+  const originalExt = extname(file.name);
+
+  if (!extname(safeName) && originalExt) {
+    safeName += originalExt;
   }
-  const publicDir = join(process.cwd(), 'public');
-  const filePath = join(publicDir, safeName);
+
+  if (!safeName) {
+    return NextResponse.json({ error: "Invalid file name" }, { status: 400 });
+  }
+
+  const uploadsDir = join(process.cwd(), "public", "uploads");
+  const filePath = join(uploadsDir, safeName);
 
   try {
-    // Ensure public directory exists and create the file (fail if it already exists)
-    await mkdir(publicDir, { recursive: true });
+    await mkdir(uploadsDir, { recursive: true });
     const bytes = await file.arrayBuffer();
-    await writeFile(filePath, Buffer.from(bytes), { flag: 'wx' });
+    await writeFile(filePath, Buffer.from(bytes), { flag: "wx" });
   } catch (err: any) {
-    if (err && typeof err === 'object' && 'code' in err && (err as any).code === 'EEXIST') {
-      return NextResponse.json({ error: 'File already exists in public folder' }, { status: 409 });
+    if (err?.code === "EEXIST") {
+      return NextResponse.json(
+        { error: "File already exists in uploads folder" },
+        { status: 409 }
+      );
     }
-    console.error('Failed to create file in public folder:', err);
-    return NextResponse.json({ error: 'Failed to create file' }, { status: 500 });
+    console.error("Failed to create file in uploads folder:", err);
+    return NextResponse.json(
+      { error: "Failed to create file" },
+      { status: 500 }
+    );
   }
 
-  // Update in-memory structure after successful file creation
-  parent.children.push({
+  // Construct the FileNode with url
+  const newFile = {
     id: Date.now().toString(),
     name: safeName,
-    type: 'file',
-  });
-  revalidatePath('/');
+    type: "file" as const,
+    url: `/uploads/${safeName}`, // 👈 للـ preview
+  };
+
+  parent.children.push(newFile);
+
+  revalidatePath("/");
   revalidatePath(`/folder/${params.id}`);
-  return NextResponse.json({ success: true });
+
+  return NextResponse.json(newFile);
 }

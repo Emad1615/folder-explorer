@@ -2,13 +2,16 @@ export type FileNode = {
   id: string;
   name: string;
   type: "file";
+  url: string;
 };
+type FolderType = "folder" | "documents" | "images" | "videos" | "music";
 
 export type FolderNode = {
   id: string;
   name: string;
-  type: "folder";
+  type: "folder" | FolderType;
   children: Array<FolderNode | FileNode>;
+  url?: string;
 };
 
 export const root: FolderNode = {
@@ -16,8 +19,8 @@ export const root: FolderNode = {
   name: "root",
   type: "folder",
   children: [
-    { id: "folder-1", name: "Folder 1", type: "folder", children: [] },
-    { id: "folder-2", name: "Folder 2", type: "folder", children: [] },
+    { id: "folder-1", name: "Documents", type: "folder", children: [] },
+    { id: "folder-2", name: "Photos", type: "folder", children: [] },
   ],
 };
 
@@ -34,3 +37,11 @@ export function findFolder(
   }
   return null;
 }
+export type breadCrumb = {
+  id: string;
+  name: string;
+};
+
+export const getLastSegment = (path: string) => {
+  return path.split("/").pop() ?? "root";
+};

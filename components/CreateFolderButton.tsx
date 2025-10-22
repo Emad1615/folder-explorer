@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-export function CreateFolderButton() {
+export function CreateFolderButton({ parentId }: { parentId: string }) {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
   const router = useRouter();
 
   return (
@@ -18,20 +18,20 @@ export function CreateFolderButton() {
       </button>
       {open && (
         <form
-          className="fixed inset-0 flex items-center justify-center bg-black/40"
+          className="fixed inset-0 flex items-center justify-center bg-black/40 z-10"
           onSubmit={async (e) => {
             e.preventDefault();
             const trimmed = name.trim();
             if (trimmed) {
-              await fetch(`/api/folders/root`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+              await fetch(`/api/folders/${parentId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ name: trimmed }),
               });
               router.refresh();
             }
             setOpen(false);
-            setName('');
+            setName("");
           }}
         >
           <div className="bg-white p-4 rounded space-y-2">
